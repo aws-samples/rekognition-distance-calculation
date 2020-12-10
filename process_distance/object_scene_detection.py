@@ -106,7 +106,7 @@ def lambda_handler(event, context):
     folder_name = os.getenv("S3_FOLDER_NAME", "to_process")
 
     # Object name will come from S3 event
-    object_name = "fila_image_distance.jpg"
+    object_name = ((event["Records"][0]["s3"]["object"]["key"]).split("/"))[-1]
 
     detect_person_label(bucket, folder_name, object_name)
 
