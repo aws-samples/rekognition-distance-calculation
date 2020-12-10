@@ -92,7 +92,7 @@ def detect_person_label(bucket_name, folder_name, object_name):
             count2 += 1
 
             # Distancia entre a pessoa para alertar via email utilizando SNS, apenas desenha a linah se for menor que 150 px
-            if distance < 150:
+            if distance < int(os.getenv("PIXEL_DISTANCE", "150")):
                 draw.line((first_center[0], first_center[1]-50, second_center[0], second_center[1]-50), fill='#fe0303', width=2)
 
                 # Will save the image inside tmp folder to upload to s3 Bucket only if distance matches the conditional
