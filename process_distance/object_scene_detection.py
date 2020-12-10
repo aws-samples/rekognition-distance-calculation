@@ -107,7 +107,7 @@ def lambda_handler(event, context):
 
     # Object name will come from S3 event
     object_name = ((event["Records"][0]["s3"]["object"]["key"]).split("/"))[-1]
-
+    # object_name = "fila_image_distance.jpg"
     detect_person_label(bucket, folder_name, object_name)
 
     # Upload imge to S3 after processing
