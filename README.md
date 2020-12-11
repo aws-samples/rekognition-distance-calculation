@@ -23,11 +23,11 @@ aws s3 mb s3://<MY_BUCKET_NAME>
 ZIP lambda code.
 
 ``` shell
-zip ./lambda_package_crowd.zip process_distance/lambda_function.py
+zip ./lambda_package_crowd.zip -j process_distance/*
 ```
 
 ``` shell
-zip ./lambda_package_notify.zip lambda-sns-notify/lambda_function.py
+zip ./lambda_package_notify.zip -j lambda_sns_notify/*
 ```
 
 Upload the lambda packages to the S3 bucket that we created before.

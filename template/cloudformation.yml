@@ -20,40 +20,63 @@ Parameters:
   SnsSubscriptionEmail:
     Description: The email address that you want to subscribe into sns topic
     Type: String
+  PillowLayerArn:
+    Description: ARN of the Pillow layer created previously
+    Type: String
 
 Resources:
+  LambdaNotifyPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref LambdaNotify
+      Principal: "s3.amazonaws.com"
+
+  LambdaCrowdPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref LambdaCrowdDetect
+      Principal: "s3.amazonaws.com"
+
   S3BucketPictures:
     Type: AWS::S3::Bucket
-    DependsOn: !Ref LambdaCrowdDetect
+    DependsOn: LambdaCrowdPermission
     Properties:
       AccessControl: Private
       BucketName: !Ref BucketPictures
-      LambdaConfiguration:
-        Event: "s3:ObjectCreated:*"
-        Filter:
-          S3Key:
-            Rules:
-              - Name: suffix
-                Value: String
-        Function: !GetAtt LambdaCrowdDetect.Arn
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value:
+                      - ".jpg"
+                        ".png"
+            Function: !GetAtt LambdaCrowdDetect.Arn
       Tags:
         - Key: Stack
           Value: !Ref StackName
 
   S3BucketWarning:
     Type: AWS::S3::Bucket
-    DependsOn: !Ref LambdaNotify
+    DependsOn: LambdaNotifyPermission
     Properties:
       AccessControl: Private
       BucketName: !Ref BucketWarning
-      LambdaConfiguration:
-        Event: "s3:ObjectCreated:*"
-        Filter:
-          S3Key:
-            Rules:
-              - Name: suffix
-                Value: String
-        Function: !GetAtt LambdaNotify.Arn
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value:
+                      - ".jpg"
+                        ".png"
+            Function: !GetAtt LambdaNotify.Arn
       Tags:
         - Key: Stack
           Value: !Ref StackName
@@ -124,6 +147,8 @@ Resources:
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaCrowdRole.Arn
       Runtime: python3.7
+      Layers:
+        - !GetAtt LambdaPillowLayer.Arn
       Timeout: 10
       MemorySize: 512
 
