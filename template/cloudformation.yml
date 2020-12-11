@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Stack to provision complete rekognition crowded demo pt2
+
+Parameters:
+  StackName:
+    Description: The name of your stack to apply Tags
+    Type: String
+    Default: rekognition-stack
+  BucketPictures:
+    Description: The S3 bucket name to store all pictures
+    Type: String
+    Default: rekognition-s3-pictures
+  BucketWarning:
+    Description: The S3 bucket name to store warning pictures
+    Type: String
+    Default: rekognition-s3-crowded
+  BucketLambdaCode:
+    Description: The S3 bucket where you store your lambda code
+    Type: String
+  SnsSubscriptionEmail:
+    Description: The email address that you want to subscribe into sns topic
+    Type: String
+
+Resources:
+  S3BucketPictures:
+    Type: AWS::S3::Bucket
+    DependsOn: !Ref LambdaCrowdDetect
+    Properties:
+      AccessControl: Private
+      BucketName: !Ref BucketPictures
+      LambdaConfiguration:
+        Event: "s3:ObjectCreated:*"
+        Filter:
+          S3Key:
+            Rules:
+              - Name: suffix
+                Value: String
+        Function: !GetAtt LambdaCrowdDetect.Arn
+      Tags:
+        - Key: Stack
+          Value: !Ref StackName
+
+  S3BucketWarning:
+    Type: AWS::S3::Bucket
+    DependsOn: !Ref LambdaNotify
+    Properties:
+      AccessControl: Private
+      BucketName: !Ref BucketWarning
+      LambdaConfiguration:
+        Event: "s3:ObjectCreated:*"
+        Filter:
+          S3Key:
+            Rules:
+              - Name: suffix
+                Value: String
+        Function: !GetAtt LambdaNotify.Arn
+      Tags:
+        - Key: Stack
+          Value: !Ref StackName
+
+  SnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: warning-rekognition-sns
+      Subscription:
+        - Endpoint: !Ref SnsSubscriptionEmail
+          Protocol: email
+      TopicName: warning-rekognition-sns
+
+  LambdaNotifyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  LambdaNotify:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref BucketLambdaCode
+        S3Key: lambda_code/lambda_package_notify.zip
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaNotifyRole.Arn
+      Runtime: python3.7
+      Timeout: 10
+      MemorySize: 512
+      Environment:
+        Variables:
+          TOPIC_ARN: !Ref SnsTopic
+
+  LambdaCrowdRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonRekognitionFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  LambdaCrowdDetect:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref BucketLambdaCode
+        S3Key: lambda_code/lambda_package_crowd.zip
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaCrowdRole.Arn
+      Runtime: python3.7
+      Timeout: 10
+      MemorySize: 512
+
+Outputs:
+  Email:
+    Description: "E-mail to receive notifications"
+    Value: !Ref SnsSubscriptionEmail
