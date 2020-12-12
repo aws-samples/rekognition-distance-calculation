@@ -47,7 +47,7 @@ aws s3 cp lambda_package_notify.zip s3://<MY_BUCKET_NAME>/lambda_code/
 Now we need to create the stack using our Cloudformation template available in **cloudformation/** folder
 
 ``` shell
-aws cloudformation create-stack --stack-name crowd-rekognition-stack --template-body file://template/cloudformation.yml --parameters ParameterKey=StackName,ParameterValue=crowd-rekognition-stack ParameterKey=BucketPictures,ParameterValue=<NEW_BUCKET_NAME_PICTURES> ParameterKey=BucketWarning,ParameterValue=<NEW_BUCKET_NAME_WAWRNINGS> ParameterKey=BucketLambdaCode,ParameterValue=<BUCKET_NAME_THAT_WE_PROVISIONED_BEFORE> ParameterKey=SnsSubscriptionEmail,ParameterValue=<YOUR_EMAIL_ADDRESS> --capabilities CAPABILITY_IAM
+aws cloudformation create-stack --stack-name crowd-rekognition-stack --template-body file://template/cloudformation.yml --parameters ParameterKey=StackName,ParameterValue=crowd-rekognition-stack ParameterKey=BucketPictures,ParameterValue=<NEW_BUCKET_NAME_PICTURES> ParameterKey=BucketLambdaCode,ParameterValue=<BUCKET_NAME_THAT_WE_PROVISIONED_BEFORE> ParameterKey=SnsSubscriptionEmail,ParameterValue=<YOUR_EMAIL_ADDRESS> --capabilities CAPABILITY_IAM
 ```
 
 Wait for the stack to be created.

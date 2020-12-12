@@ -10,10 +10,6 @@ Parameters:
     Description: The S3 bucket name to store all pictures
     Type: String
     Default: rekognition-s3-pictures
-  BucketWarning:
-    Description: The S3 bucket name to store warning pictures
-    Type: String
-    Default: rekognition-s3-crowded
   BucketLambdaCode:
     Description: The S3 bucket where you store your lambda code
     Type: String
@@ -21,7 +17,7 @@ Parameters:
     Description: The email address that you want to subscribe into sns topic
     Type: String
   PixelDistance:
-    Description: The distance between people
+    Description: The distance between people (in pixels)
     Type: String
     Default: 150
 
@@ -32,6 +28,8 @@ Resources:
       Action: "lambda:InvokeFunction"
       FunctionName: !Ref LambdaNotify
       Principal: "s3.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:aws:s3:::${BucketPictures}"
 
   LambdaCrowdPermission:
     Type: AWS::Lambda::Permission
@@ -39,10 +37,14 @@ Resources:
       Action: "lambda:InvokeFunction"
       FunctionName: !Ref LambdaCrowdDetect
       Principal: "s3.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:aws:s3:::${BucketPictures}"
 
   S3BucketPictures:
     Type: AWS::S3::Bucket
-    DependsOn: LambdaCrowdPermission
+    DependsOn:
+      - LambdaCrowdPermission
+      - LambdaNotifyPermission
     Properties:
       AccessControl: Private
       BucketName: !Ref BucketPictures
@@ -52,27 +54,15 @@ Resources:
             Filter:
               S3Key:
                 Rules:
-                  - Name: suffix
-                    Value: ".jpg, .png"
+                  - Name: prefix
+                    Value: "to_process"
             Function: !GetAtt LambdaCrowdDetect.Arn
-      Tags:
-        - Key: Stack
-          Value: !Ref StackName
-
-  S3BucketWarning:
-    Type: AWS::S3::Bucket
-    DependsOn: LambdaNotifyPermission
-    Properties:
-      AccessControl: Private
-      BucketName: !Ref BucketWarning
-      NotificationConfiguration:
-        LambdaConfigurations:
           - Event: "s3:ObjectCreated:*"
             Filter:
               S3Key:
                 Rules:
-                  - Name: suffix
-                    Value: ".jpg, .png"
+                  - Name: prefix
+                    Value: "processed"
             Function: !GetAtt LambdaNotify.Arn
       Tags:
         - Key: Stack
@@ -123,7 +113,7 @@ Resources:
     Properties:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonRekognitionFullAccess
-        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -143,7 +133,7 @@ Resources:
         S3Key: lambda_code/lambda_package_crowd.zip
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaCrowdRole.Arn
-      Runtime: python3.7
+      Runtime: python3.8
       Layers:
         - !Ref LambdaPillowLayer
       Timeout: 10
@@ -152,7 +142,7 @@ Resources:
         Variables:
           PIXEL_DISTANCE: !Ref PixelDistance
           BUCKET_NAME: !Ref BucketPictures
-          S3_FOLDER_NAME: ""
+          S3_FOLDER_NAME: "to_process"
 
   LambdaPillowLayer:
     Type: AWS::Lambda::LayerVersion
