@@ -1,0 +1,159 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Stack to provision complete rekognition crowded demo pt2
+
+Parameters:
+  StackName:
+    Description: The name of your stack to apply Tags
+    Type: String
+    Default: rekognition-stack
+  BucketPictures:
+    Description: The S3 bucket name to store all pictures
+    Type: String
+    Default: rekognition-s3-pictures
+  BucketLambdaCode:
+    Description: The S3 bucket where you store your lambda code
+    Type: String
+  SnsSubscriptionEmail:
+    Description: The email address that you want to subscribe into sns topic
+    Type: String
+  PixelDistance:
+    Description: The distance between people (in pixels)
+    Type: String
+    Default: 150
+
+Resources:
+  LambdaNotifyPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref LambdaNotify
+      Principal: "s3.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:aws:s3:::${BucketPictures}"
+
+  LambdaCrowdPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref LambdaCrowdDetect
+      Principal: "s3.amazonaws.com"
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:aws:s3:::${BucketPictures}"
+
+  S3BucketPictures:
+    Type: AWS::S3::Bucket
+    DependsOn:
+      - LambdaCrowdPermission
+      - LambdaNotifyPermission
+    Properties:
+      AccessControl: Private
+      BucketName: !Ref BucketPictures
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: "to_process"
+            Function: !GetAtt LambdaCrowdDetect.Arn
+          - Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: "processed"
+            Function: !GetAtt LambdaNotify.Arn
+      Tags:
+        - Key: Stack
+          Value: !Ref StackName
+
+  SnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: warning-rekognition-sns
+      Subscription:
+        - Endpoint: !Ref SnsSubscriptionEmail
+          Protocol: email
+      TopicName: warning-rekognition-sns
+
+  LambdaNotifyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSNSFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  LambdaNotify:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref BucketLambdaCode
+        S3Key: lambda_code/lambda_package_notify.zip
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaNotifyRole.Arn
+      Runtime: python3.8
+      Timeout: 10
+      MemorySize: 512
+      Environment:
+        Variables:
+          TOPIC_ARN: !Ref SnsTopic
+
+  LambdaCrowdRole:
+    Type: AWS::IAM::Role
+    Properties:
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonRekognitionFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  LambdaCrowdDetect:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: !Ref BucketLambdaCode
+        S3Key: lambda_code/lambda_package_crowd.zip
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaCrowdRole.Arn
+      Runtime: python3.8
+      Layers:
+        - !Ref LambdaPillowLayer
+      Timeout: 10
+      MemorySize: 512
+      Environment:
+        Variables:
+          PIXEL_DISTANCE: !Ref PixelDistance
+          BUCKET_NAME: !Ref BucketPictures
+          S3_FOLDER_NAME: "to_process"
+
+  LambdaPillowLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleRuntimes:
+        - python3.8
+      Content:
+        S3Bucket: !Ref BucketLambdaCode
+        S3Key: lambda_layer/pillow-layer.zip
+
+Outputs:
+  Email:
+    Description: "E-mail to receive notifications"
+    Value: !Ref SnsSubscriptionEmail

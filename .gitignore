@@ -142,4 +142,11 @@ dmypy.json
 # profiling data
 .prof
 
+# Project
+lambda_package_crowd.zip
+lambda_package_notify.zip
+
+# MAC
+.DS_Store
+
 # End of https://www.toptal.com/developers/gitignore/api/python
