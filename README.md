@@ -80,8 +80,9 @@ Wait for the stack to be created and test the solution uploading a new image on 
 
 ## Security
 
-See CONTRIBUTING for more information.
+See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
 
 ## License
 
-This sample code is made available under the MIT-0 license. See the LICENSE file.
+This library is licensed under the MIT-0 License. See the LICENSE file.
+
