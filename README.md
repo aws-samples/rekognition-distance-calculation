@@ -3,11 +3,11 @@
 This solution explore how to identify non-compliance with guidelines for social distance using Amazon Rekognition, AWS Lambda and Amazon SNS.
 
 <p align="center"> 
-<img src="images/fila_image_distance_solution.jpg">
+<img src="images/fila.jpg">
 </p>
 
 <p align="center"> 
-<img src="images/fila_image_distance_solution_bounding_box.png">
+<img src="images/fila_bounding_box.png">
 </p>
 
 ## Solution Overview
